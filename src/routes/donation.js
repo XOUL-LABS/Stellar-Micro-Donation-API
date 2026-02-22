@@ -4,10 +4,7 @@ const Database = require('../utils/database');
 const Transaction = require('./models/transaction');
 const requireApiKey = require('../middleware/apiKeyMiddleware');
 
-const stellarService = new StellarService({
-  network: process.env.STELLAR_NETWORK || 'testnet',
-  horizonUrl: process.env.HORIZON_URL || 'https://horizon-testnet.stellar.org'
-});
+const { getStellarService } = require('../config/stellar');
 const donationValidator = require('../utils/donationValidator');
 const memoValidator = require('../utils/memoValidator');
 const { calculateAnalyticsFee } = require('../utils/feeCalculator');
@@ -62,6 +59,13 @@ router.post('/send', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields: senderId, receiverId, amount'
+      });
+    }
+
+    if (typeof senderId === 'object' || typeof receiverId === 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Malformed request: senderId and receiverId must be valid IDs'
       });
     }
 
@@ -160,6 +164,12 @@ router.post('/', requireApiKey, (req, res) => {
 
     if (!amount || !recipient) {
       throw new ValidationError('Missing required fields: amount, recipient', null, ERROR_CODES.MISSING_REQUIRED_FIELD);
+    }
+
+    if (typeof recipient !== 'string' || (donor && typeof donor !== 'string')) {
+      return res.status(400).json({
+        error: 'Malformed request: donor and recipient must be strings'
+      });
     }
 
     // Validate memo if provided
